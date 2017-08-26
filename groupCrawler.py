@@ -23,6 +23,7 @@ class GroupCrawler(object):
         self.mongodb = MongoClient()
         self.start_urls = start_urls
         self.crawl_urls = []
+        self.use_proxy = False
 
     def start_requests(self):
         for url in self.start_urls:
@@ -114,11 +115,12 @@ class GroupCrawler(object):
             pass
         return '', ''
 
-    def crawler(self, url):
+    def crawler(self, iurl):
+        url, use_proxy = iurl
         self.crawl_urls.remove(url)
         self.redisdb.put_url_success(url)
         headers = {'Referer': 'https://www.douban.com/group/explore'}
-        content = get_page(url, headers=headers, use_proxy=True)
+        content = get_page(url, headers=headers, use_proxy=use_proxy)
         self.parse_content(content, url)
 
     def run(self):
@@ -130,10 +132,12 @@ class GroupCrawler(object):
                 urls = [self.redisdb.pop_url() for x in range(_WORKER_THREAD_NUM)]
                 urls = filter(None, urls)
                 self.crawl_urls = urls
-                pools.map(self.crawler, urls)
+
+                pools.map(self.crawler, [(x, self.use_proxy) for x in urls])
                 logging.info('waitting for next round')
                 self.crawl_urls = []
-                sleep(2)
+                self.use_proxy = not self.use_proxy
+                sleep(3)
 
 
 if __name__ == '__main__':

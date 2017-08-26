@@ -54,7 +54,7 @@ class Tester(object):
             traceback.print_exc()
 
 
-_WORKER_THREAD_NUM = 20
+_WORKER_THREAD_NUM = 50
 
 class ProxyChecker(object):
     
