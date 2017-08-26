@@ -3,7 +3,6 @@ from gevent import monkey;monkey.patch_all()
 from gevent.pool import Pool
 import traceback
 import re
-import Queue
 from random import randint
 from time import sleep
 from concurrent.futures import ThreadPoolExecutor
@@ -11,17 +10,17 @@ from bs4 import BeautifulSoup
 import MySQLdb
 from settings import *
 from downloader import get_page
-from db import RedisClient
+from db import RedisClient, MongoClient
+from models import *
 
 
-_WORKER_THREAD_NUM = 3
+_WORKER_THREAD_NUM = 10
 
 class GroupCrawler(object):
     
     def __init__(self, start_urls):
         self.redisdb = RedisClient()
-        self.datadb = MySQLdb.connect("localhost","root","lupin2008cn","douban")
-        self.cursor = self.datadb.cursor()
+        self.mongodb = MongoClient()
         self.start_urls = start_urls
         self.crawl_urls = []
 
@@ -38,9 +37,9 @@ class GroupCrawler(object):
         # 找下一步要爬取的
         links = bs.find_all('a', href=re.compile('https://www.douban.com/group/\d*-*\w*/$'))
         for l in links:
-            url = l.attrs.get('href', '')
-            if url and url not in self.crawl_urls and not self.redisdb.is_url_success(url):
-                self.redisdb.put_url(url)
+            new_url = l.attrs.get('href', '')
+            if new_url and new_url not in self.crawl_urls and not self.redisdb.is_url_success(new_url):
+                self.redisdb.put_url(new_url)
         
         # 解析想要的内容
         info = {'name': '', 'gid': '', 'members': 0, 'created_at': '', 'owner_name': '', 'owner_id': ''}
@@ -53,19 +52,19 @@ class GroupCrawler(object):
             info['owner_id'], info['owner_name'] = self.parse_content_owner(bs)
             logging.info(info)
             try:
-                sql = '''
-                INSERT INTO `group` (name, gid, members, created_at, owner_name, owner_id) VALUES
-                ('%s', '%s', %s, '%s', '%s', '%s')
-                ''' % (info['name'], info['gid'], info['members'], info['created_at'], info['owner_name'], info['owner_id'])
-                self.cursor.execute(sql)
-                self.datadb.commit()
+                if info['gid']:
+                    self.mongodb.save_group(info)
+                else:
+                    self.redisdb.put_url(url)
             except:
-                logging.info('insert into mysql error: %s' % sql)
+                self.redisdb.put_url(url)
+                logging.info('insert into mysql error: %s' % info)
                 traceback.print_exc()
         except:
-            if url not in self.start_urls:
+            if new_url not in self.start_urls:
                 logging.info('parse url %s error' % url)
-                traceback.print_exc()
+                self.redisdb.put_url(url)
+                # traceback.print_exc()
 
     def parse_content_name(self, bs):
         try:
@@ -116,9 +115,10 @@ class GroupCrawler(object):
         return '', ''
 
     def crawler(self, url):
+        self.crawl_urls.remove(url)
         self.redisdb.put_url_success(url)
         headers = {'Referer': 'https://www.douban.com/group/explore'}
-        content = get_page(url, headers=headers)
+        content = get_page(url, headers=headers, use_proxy=True)
         self.parse_content(content, url)
 
     def run(self):
@@ -133,7 +133,7 @@ class GroupCrawler(object):
                 pools.map(self.crawler, urls)
                 logging.info('waitting for next round')
                 self.crawl_urls = []
-                sleep(3)
+                sleep(2)
 
 
 if __name__ == '__main__':

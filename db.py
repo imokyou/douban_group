@@ -2,6 +2,7 @@
 import traceback
 from random import randint
 import redis
+import pymongo
 from settings import *
 
 
@@ -94,6 +95,19 @@ class RedisClient(object):
             traceback.print_exc()
             logging.info('pop url error')
         return None
+
+
+class MongoClient(object):
+    def __init__(self):
+        self._conn = pymongo.MongoClient("localhost", 27017)
+        self._db = self._conn.douban
+
+    def save_group(self, info):
+        if not self.is_group_exists(info['gid']):
+            self._db['group'].save(info)
+
+    def is_group_exists(self, gid):
+        return self._db['group'].find({'gid': gid}).count()
 
 
 if __name__ == '__main__':

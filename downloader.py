@@ -10,6 +10,7 @@ conn = RedisClient()
 def get_page(url, headers={}, use_proxy=False, count=0):
     try:
         if count >= DOWNLOAD_RETRY_TIMES:
+            logging.info('Max retries exceeded with url, retry: %s times' % count)
             return None
         ua = UserAgent()
         headers['User-Agent'] = ua.random
@@ -31,9 +32,10 @@ def get_page(url, headers={}, use_proxy=False, count=0):
         if not resp  or not resp.content or resp.status_code != 200:
             count = count + 1
             get_page(url, headers=headers, use_proxy=True, count=count)
-        return resp.content
+        return resp.text
     except:
-        traceback.print_exc()
+        # traceback.print_exc()
         count = count + 1
         get_page(url, headers=headers, use_proxy=True, count=count)
+    logging.info('end. get from %s, use proxy %s, retry times %s' % (url, proxy, count))
     return None
