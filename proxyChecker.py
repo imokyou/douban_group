@@ -1,4 +1,6 @@
 # coding=utf8
+from gevent import monkey;monkey.patch_all()
+from gevent.pool import Pool
 import traceback
 import requests
 from concurrent.futures import ThreadPoolExecutor
@@ -34,12 +36,15 @@ class Tester(object):
     def test_single(self, proxy):
         try:
             proto, ip, port = parse_proxy(proxy.lower())
-            if proto == 'http':
-                logging.info('InValid proxy %s, https wanted' % proxy)
+            if proto.lower() == 'http':
+                logging.info('Invalid proxy %s, http wanted' % proxy)
                 return None
             proxies = { proto: 'http://%s:%s' % (ip, port) }
             try:
-                resp = requests.get(HTTPS_TEST_API, proxies=proxies, timeout=CHECK_TIMEOUT)
+                if proto.lower() == 'http':
+                    resp = requests.get(HTTP_TEST_API, proxies=proxies, timeout=CHECK_TIMEOUT)
+                else:
+                    resp = requests.get(HTTPS_TEST_API, proxies=proxies, timeout=CHECK_TIMEOUT)
                 if resp:
                     logging.info('Valid proxy %s' % proxy)
                     self.conn.put(proxy)
@@ -49,8 +54,7 @@ class Tester(object):
             traceback.print_exc()
 
 
-_WORKER_THREAD_NUM = 10 
-
+_WORKER_THREAD_NUM = 20
 
 class ProxyChecker(object):
     
@@ -59,18 +63,12 @@ class ProxyChecker(object):
         
     def run(self):
         tester = Tester()
-        threads = []
+        pools = Pool(_WORKER_THREAD_NUM)
         logging.info('proxy checker start running...')
         while True:
-            if len(threads) >= 1:
-                for t in threads:
-                    t.terminate() 
-    
-            threads = []
             proxies = self.conn.get(2000)
-            with ThreadPoolExecutor(max_workers=_WORKER_THREAD_NUM) as executor:
-                for proxy in proxies:
-                    executor.submit(tester.test_single, proxy)
+            pools.map(tester.test_single, proxies)
+            logging.info('round end, waitting for next round, paused %s seconds for now...' % PROXY_CHECKER_SLEEP)
             sleep(PROXY_CHECKER_SLEEP)
 
 
