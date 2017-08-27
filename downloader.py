@@ -9,6 +9,9 @@ conn = RedisClient()
 
 def get_page(url, headers={}, use_proxy=False, count=0):
     try:
+        if use_proxy and not conn.proxy_queue_len:
+            logging.info('no proxy')
+            return None
         if count >= DOWNLOAD_RETRY_TIMES:
             logging.info('Max retries exceeded with url, retry: %s times' % count)
             return None
@@ -24,18 +27,16 @@ def get_page(url, headers={}, use_proxy=False, count=0):
                 proxy = conn.rand_proxy()
             proxy.replace('https', 'http')
             proxies = {'http': proxy, 'https': proxy}
-            logging.info('get from %s, use proxy %s, retry times %s' % (url, proxy, count))
+            logging.info('get from %s, CRAWL_MODE: %s, use proxy %s, retry times %s' % (url, CRAWL_MODE, proxy, count))
             resp = requests.get(url, headers=headers, proxies=proxies, timeout=DOWNLOAD_TIMEOUT)
         else:
-            logging.info('get from %s' % url)
+            logging.info('get from %s, CRAWL_MODE: %s' % (url, CRAWL_MODE))
             resp = requests.get(url, headers=headers, timeout=DOWNLOAD_TIMEOUT)
         if not resp  or not resp.content or resp.status_code != 200:
             count = count + 1
-            get_page(url, headers=headers, use_proxy=True, count=count)
+            get_page(url, headers=headers, use_proxy=use_proxy, count=count)
         return resp.text
     except:
-        # traceback.print_exc()
         count = count + 1
-        get_page(url, headers=headers, use_proxy=True, count=count)
-    logging.info('end. get from %s, use proxy %s, retry times %s' % (url, proxy, count))
+        get_page(url, headers=headers, use_proxy=use_proxy, count=count)
     return None

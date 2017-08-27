@@ -1,6 +1,7 @@
 # coding = utf8
 import traceback
 from random import randint
+import urllib
 import redis
 import pymongo
 from settings import *
@@ -33,7 +34,7 @@ class RedisClient(object):
 
     def put(self, proxy):
         try:
-            proxies = self._db.lrange(self._dbkey, 0, self.queue_len)
+            proxies = self._db.lrange(self._dbkey, 0, self.proxy_queue_len)
             if proxy not in proxies:
                 logging.info('PUT proxy {} INTO DB'.format(proxy))
                 proxy = self._db.lpush(self._dbkey, proxy)
@@ -63,7 +64,7 @@ class RedisClient(object):
         self._db.delete(self._dbkey)
 
     @property
-    def queue_len(self):
+    def proxy_queue_len(self):
         return self._db.llen(self._dbkey)
 
     @property
@@ -85,6 +86,13 @@ class RedisClient(object):
             traceback.print_exc()
             logging.info('put url successed error')
 
+    def remove_url_success(self, url):
+        try:
+            self._db.srem(self._group_urls_successed, url)
+        except:
+            traceback.print_exc()
+            logging.info('remove url successed error')
+
     def is_url_success(self, url):
         return self._db.sismember(self._group_urls_successed, url)
 
@@ -99,8 +107,20 @@ class RedisClient(object):
 
 class MongoClient(object):
     def __init__(self):
-        self._conn = pymongo.MongoClient("localhost", 27017)
-        self._db = self._conn.douban
+        try:
+            if MONGODB['pwd']:
+                mlink = 'mongodb://%s:%s@%s:%s/%s' \
+                    % (urllib.quote_plus(MONGODB['user']),
+                       urllib.quote_plus(MONGODB['pwd']),
+                       MONGODB['host'],
+                       MONGODB['port'],
+                       MONGODB['db'])
+            else:
+                mlink = 'mongodb://%s:%s' % (MONGODB['host'], MONGODB['port'])
+            self._conn = pymongo.MongoClient(mlink)
+            self._db = self._conn[MONGODB['db']]
+        except:
+            logging.info('connect redis error')
 
     def save_group(self, info):
         if not self.is_group_exists(info['gid']):

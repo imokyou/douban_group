@@ -15,7 +15,7 @@ from db import RedisClient
 class ProxySpider(object):
     
     def __init__(self):
-        self.proxy_api = 'http://vtp.daxiangdaili.com/ip/?tid=557645159093000&num=1000&delay=3&category=2&protocol=https'
+        self.proxy_api = PROXY_API
 
     def get_raw_proxies(self):
         try:
@@ -39,7 +39,7 @@ class ProxyCrawler(object):
         self.checker = Tester()
 
     def proxy_enough(self):
-        self.proxy_nums = self.conn.queue_len
+        self.proxy_nums = self.conn.proxy_queue_len
         if self.proxy_nums >= THRESHOLD_LOWER:
             return True
         else:
@@ -47,6 +47,8 @@ class ProxyCrawler(object):
 
 
     def run(self):
+        if not IS_SERVER or not ACTIVATE_CRAWL_PROXY:
+            return None
         logging.info('proxy crawler start running...')
         pools = Pool(_WORKER_THREAD_NUM)
         while True:

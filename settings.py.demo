@@ -4,42 +4,61 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s:%(levelname)s %(message)s')
 
 
+# 是否为主服务器，抓代理、初始化抓取链接的逻辑只能在主服务器上做
+IS_SERVER = True
+
+# 是否激活代理抓取
+ACTIVATE_CRAWL_PROXY = False
+
 REDIS = {
-    'host': '127.0.0.1',
+    'host': 'localhost',
     'port': 6379,
     'password': '',
     'db': 3
 }
+MONGODB = {
+    'host': 'locahost',
+    'port': 27017,
+    'user': '',
+    'pwd': '',
+    'db': 'douban'
+}
+
+# 下载器的超时时间，单位秒(s)
+DOWNLOAD_TIMEOUT = 5
+
+# 下载器重试次数
+DOWNLOAD_RETRY_TIMES = 3
+
+# 抓取模式, normal普通，proxy代理，mix混合(普通加代理)
+CRAWL_MODE = 'normal'
+
+# 抓取的gevent池大小
+CRAWL_WORKER_THREAD_NUM = 3
+
+# 抓取时间间隔，单位秒(s)
+CRAWL_WORKER_SLEEP = 3
+
+# 代理获取接口，大像代理，你值得拥有
+PROXY_API = ''
 
 # 测试代理有效性的地址，基本上随便一个国内网址即可
 HTTP_TEST_API = 'http://www.baidu.com/'
-
 HTTPS_TEST_API = 'https://www.baidu.com/'
 
 # 代理池检测器及代理过滤器的运行间隔，单位秒(s)
 RUN_CYCLE = 300
 
-# 下载器的超时时间
-DOWNLOAD_TIMEOUT = 15
-
-# 下载器重试次数
-DOWNLOAD_RETRY_TIMES = 3
-
-# 不合法的代理缓存，避免多次发起检测代理的网總请求
-INVALID_PROXY_EXPIRE = 3600*3
-
 # 代理池阀值，代理数量低于该值时会启动代理抓取流程，大于时停止抓取
-THRESHOLD_LOWER = 200
+THRESHOLD_LOWER = 50
 
-# 服务器是否在国外
-BLOCK_SITE = ['crawl_cnproxy', 'crawl_proxy360', 'crawl_daili66']
+# 代理爬取间隔，单位秒(s)
+CRAWL_PAGE_SLEEP = 60
 
-# 每页爬取间隔
-CRAWL_PAGE_SLEEP = 60 * 5
+# 代理检测超时时间，单位秒(s)
+CHECK_TIMEOUT = 3
 
-# 检测超时时间
-CHECK_TIMEOUT = 15
+# 代理检查器间隔，单位秒(s)
+PROXY_CHECKER_SLEEP = 60 * 2
 
 
-# 代理检查器间隔
-PROXY_CHECKER_SLEEP = 60 * 15

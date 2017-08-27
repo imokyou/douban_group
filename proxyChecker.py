@@ -62,6 +62,8 @@ class ProxyChecker(object):
         self.conn = RedisClient()
         
     def run(self):
+        if not IS_SERVER or not ACTIVATE_CRAWL_PROXY:
+            return None
         tester = Tester()
         pools = Pool(_WORKER_THREAD_NUM)
         logging.info('proxy checker start running...')

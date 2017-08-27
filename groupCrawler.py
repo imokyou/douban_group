@@ -14,16 +14,25 @@ from db import RedisClient, MongoClient
 from models import *
 
 
-_WORKER_THREAD_NUM = 10
-
 class GroupCrawler(object):
     
-    def __init__(self, start_urls):
+    def __init__(self):
         self.redisdb = RedisClient()
         self.mongodb = MongoClient()
-        self.start_urls = start_urls
         self.crawl_urls = []
         self.use_proxy = False
+        if CRAWL_MODE == 'proxy':
+            self.use_proxy = True
+
+        self.start_urls = [
+            'https://www.douban.com/group/explore',
+            'https://www.douban.com/group/explore/culture',
+            'https://www.douban.com/group/explore/travel',
+            'https://www.douban.com/group/explore/ent',
+            'https://www.douban.com/group/explore/fashion',
+            'https://www.douban.com/group/explore/life',
+            'https://www.douban.com/group/explore/tech'
+        ]
 
     def start_requests(self):
         for url in self.start_urls:
@@ -32,6 +41,7 @@ class GroupCrawler(object):
     def parse_content(self, html, url):
         if not html:
             logging.info('html is empty, from %s' % url)
+            self.redisdb.remove_url_success(url)
             self.redisdb.put_url(url)
             return None
         bs = BeautifulSoup(html, 'lxml')
@@ -125,30 +135,25 @@ class GroupCrawler(object):
 
     def run(self):
         print 'group crawler start runing'
-        self.start_requests()
-        pools = Pool(_WORKER_THREAD_NUM)
+        if IS_SERVER:
+            self.start_requests()
+        pools = Pool(CRAWL_WORKER_THREAD_NUM)
         while True:
             while self.redisdb.url_queue_len:
-                urls = [self.redisdb.pop_url() for x in range(_WORKER_THREAD_NUM)]
+                urls = [self.redisdb.pop_url() for x in range(CRAWL_WORKER_THREAD_NUM)]
                 urls = filter(None, urls)
                 self.crawl_urls = urls
 
                 pools.map(self.crawler, [(x, self.use_proxy) for x in urls])
                 logging.info('waitting for next round')
                 self.crawl_urls = []
-                self.use_proxy = not self.use_proxy
-                sleep(3)
+                if CRAWL_MODE == 'mix':
+                    self.use_proxy = not self.use_proxy
+                sleep(CRAWL_WORKER_SLEEP)
+            else:
+                print 'url queue len is: %s' % self.redisdb.url_queue_len
 
 
 if __name__ == '__main__':
-    start_urls = [
-        'https://www.douban.com/group/explore',
-        'https://www.douban.com/group/explore/culture',
-        'https://www.douban.com/group/explore/travel',
-        'https://www.douban.com/group/explore/ent',
-        'https://www.douban.com/group/explore/fashion',
-        'https://www.douban.com/group/explore/life',
-        'https://www.douban.com/group/explore/tech'
-    ]
-    group = GroupCrawler(start_urls)
+    group = GroupCrawler()
     group.run()
