@@ -136,6 +136,7 @@ class GroupCrawler(object):
         if IS_SERVER:
             self.start_requests()
         pools = Pool(CRAWL_WORKER_THREAD_NUM)
+        count = 0
         while True:
             while self.redisdb.url_queue_len:
                 urls = [self.redisdb.pop_url() for x in range(CRAWL_WORKER_THREAD_NUM)]
@@ -146,7 +147,13 @@ class GroupCrawler(object):
                 logging.info('waitting for next round')
                 self.crawl_urls = []
                 if CRAWL_MODE == 'mix':
-                    self.use_proxy = not self.use_proxy
+                    if count%3 == 0:
+                        self.use_proxy = False
+                    else:
+                        self.use_proxy = True
+                count += 1
+                if count >= 1000:
+                    count = 0
                 sleep(CRAWL_WORKER_SLEEP)
             else:
                 print 'url queue len is: %s' % self.redisdb.url_queue_len

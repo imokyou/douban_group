@@ -17,17 +17,14 @@ def run_as_server():
     proxy_crawler_process = Process(target=proxy_crawler.run)
     proxy_checker_process = Process(target=proxy_checker.run)
     group_crawler_process = Process(target=group_crawler.run)
-    group_crawler_process2 = Process(target=group_crawler.run)
 
     proxy_crawler_process.start()
     proxy_checker_process.start()
     group_crawler_process.start()
-    group_crawler_process2.start()
     
     proxy_crawler_process.join()
     proxy_checker_process.join()
     group_crawler_process.join()
-    group_crawler_process2.start()
 
 
 def run_as_client():
@@ -35,14 +32,8 @@ def run_as_client():
     group_crawler = GroupCrawler()
 
     group_crawler_process = Process(target=group_crawler.run)
-    group_crawler_process2 = Process(target=group_crawler.run)
-
     group_crawler_process.start()
-    group_crawler_process2.start()
-
     group_crawler_process.join()
-    group_crawler_process2.start()
-
 
 
 def main():
