@@ -11,7 +11,6 @@ import MySQLdb
 from settings import *
 from downloader import get_page
 from db import RedisClient, MongoClient
-from models import *
 
 
 class GroupCrawler(object):
