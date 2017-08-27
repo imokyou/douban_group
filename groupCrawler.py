@@ -7,7 +7,6 @@ from random import randint
 from time import sleep
 from concurrent.futures import ThreadPoolExecutor
 from bs4 import BeautifulSoup
-import MySQLdb
 from settings import *
 from downloader import get_page
 from db import RedisClient, MongoClient
