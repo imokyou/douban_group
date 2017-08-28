@@ -47,8 +47,8 @@ class Tester(object):
                     resp = requests.get(HTTPS_TEST_API, proxies=proxies, timeout=CHECK_TIMEOUT)
                 if resp:
                     logging.info('Valid proxy %s' % proxy)
-                    self.conn.put(proxy)
             except:
+                self.conn.remove_proxy(proxy)
                 logging.info('Invalid proxy %s' % proxy)
         except:
             traceback.print_exc()
@@ -68,7 +68,7 @@ class ProxyChecker(object):
         pools = Pool(_WORKER_THREAD_NUM)
         logging.info('proxy checker start running...')
         while True:
-            proxies = self.conn.get(2000)
+            proxies = self.conn.get_allproxy()
             pools.map(tester.test_single, proxies)
             logging.info('round end, waitting for next round, paused %s seconds for now...' % PROXY_CHECKER_SLEEP)
             sleep(PROXY_CHECKER_SLEEP)

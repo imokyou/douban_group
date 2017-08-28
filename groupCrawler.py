@@ -34,21 +34,20 @@ class GroupCrawler(object):
 
     def start_requests(self):
         for url in self.start_urls:
-            self.redisdb.put_url(url)
+            self.redisdb.add_new_url(url)
 
     def parse_content(self, html, url):
         if not html:
             logging.info('html is empty, from %s' % url)
-            self.redisdb.remove_url_success(url)
-            self.redisdb.put_url(url)
+            self.redisdb.add_new_url(url)
             return None
         bs = BeautifulSoup(html, 'lxml')
         # 找下一步要爬取的
         links = bs.find_all('a', href=re.compile('https://www.douban.com/group/\d*-*\w*/$'))
         for l in links:
             new_url = l.attrs.get('href', '')
-            if new_url and new_url not in self.crawl_urls and not self.redisdb.is_url_success(new_url):
-                self.redisdb.put_url(new_url)
+            if new_url and not self.redisdb.is_old_url(new_url):
+                self.redisdb.add_new_url(new_url)
         
         # 解析想要的内容
         info = {'name': '', 'gid': '', 'members': 0, 'created_at': '', 'owner_name': '', 'owner_id': ''}
@@ -64,15 +63,15 @@ class GroupCrawler(object):
                 if info['gid']:
                     self.mongodb.save_group(info)
                 else:
-                    self.redisdb.put_url(url)
+                    self.redisdb.add_new_url(url)
             except:
-                self.redisdb.put_url(url)
+                self.redisdb.add_new_url(url)
                 logging.info('insert into mysql error: %s' % info)
                 traceback.print_exc()
         except:
             if new_url not in self.start_urls:
                 logging.info('parse url %s error' % url)
-                self.redisdb.put_url(url)
+                self.redisdb.add_new_url(url)
                 # traceback.print_exc()
 
     def parse_content_name(self, bs):
@@ -125,8 +124,6 @@ class GroupCrawler(object):
 
     def crawler(self, iurl):
         url, use_proxy = iurl
-        self.crawl_urls.remove(url)
-        self.redisdb.put_url_success(url)
         headers = {'Referer': 'https://www.douban.com/group/explore'}
         content = get_page(url, headers=headers, use_proxy=use_proxy)
         self.parse_content(content, url)
@@ -138,14 +135,15 @@ class GroupCrawler(object):
         pools = Pool(CRAWL_WORKER_THREAD_NUM)
         count = 0
         while True:
-            while self.redisdb.url_queue_len:
-                urls = [self.redisdb.pop_url() for x in range(CRAWL_WORKER_THREAD_NUM)]
-                urls = filter(None, urls)
-                self.crawl_urls = urls
-
+            while self.redisdb.url_len:
+                if self.redisdb.is_url_lock():
+                    logging.info('url pool is locked')
+                    continue
+                urls = self.redisdb.get_new_urls(CRAWL_WORKER_THREAD_NUM)
+                self.redisdb.add_old_urls(urls)
+                self.redisdb.url_unlock()
                 pools.map(self.crawler, [(x, self.use_proxy) for x in urls])
                 logging.info('waitting for next round')
-                self.crawl_urls = []
                 if CRAWL_MODE == 'mix':
                     if count%3 == 0:
                         self.use_proxy = False
@@ -154,9 +152,10 @@ class GroupCrawler(object):
                 count += 1
                 if count >= 1000:
                     count = 0
+                
                 sleep(CRAWL_WORKER_SLEEP)
             else:
-                print 'url queue len is: %s' % self.redisdb.url_queue_len
+                print 'url queue len is: %s' % self.redisdb.url_len
 
 
 if __name__ == '__main__':

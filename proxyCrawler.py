@@ -1,16 +1,18 @@
 # coding=utf8
 from gevent import monkey;monkey.patch_all()
 from gevent.pool import Pool
+from multiprocessing import Process
 import requests
 from time import sleep
 from bs4 import BeautifulSoup
-import threading
-from concurrent.futures import ThreadPoolExecutor
 from settings import *
 from downloader import get_page
-from proxyChecker import Tester
+from proxyChecker import Tester, ProxyChecker
 from db import RedisClient
 
+
+_redisdb = RedisClient()
+_WORKER_THREAD_NUM = 100
 
 class ProxySpider(object):
     
@@ -24,27 +26,24 @@ class ProxySpider(object):
             if resp.status_code == 200 and resp.content:
                 proxies = resp.content.split('\r\n')
             proxies = ['https://%s' % x for x in proxies]
+            _redisdb.add_proxies_source(proxies)
         except:
             pass
         return proxies
 
-_WORKER_THREAD_NUM = 100
-
 class ProxyCrawler(object):
 
     def __init__(self):
-        self.conn = RedisClient()
         self.proxy_nums = 0
         self.spider = ProxySpider()
         self.checker = Tester()
 
     def proxy_enough(self):
-        self.proxy_nums = self.conn.proxy_queue_len
+        self.proxy_nums = _redisdb.proxy_len
         if self.proxy_nums >= THRESHOLD_LOWER:
             return True
         else:
             return False
-
 
     def run(self):
         if not IS_SERVER or not ACTIVATE_CRAWL_PROXY:
