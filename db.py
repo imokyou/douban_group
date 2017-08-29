@@ -71,7 +71,10 @@ class RedisClient(object):
     def add_proxy(self, proxy):
         if not proxy:
             return None
-        self._db.sadd(self._proxy, proxy)
+        proxies = self.get_allproxy()
+        if proxy in proxies:
+            return None
+        self._db.lpush(self._proxy, proxy)
     
     def add_proxies(self, proxies):
         if not proxies:
@@ -91,18 +94,27 @@ class RedisClient(object):
             self.add_proxy_source(u)
 
     def rand_proxy(self):
-        return self._db.srandmember(self._proxy)
+        try:
+            proxy = self._db.rpop(self._proxy)
+            self.add_proxy(proxy)
+            return proxy
+        except:
+            pass
+        return None
 
     def remove_proxy(self, proxy):
-        return self._db.srem(self._proxy, proxy)
-
+        try:
+            return self._db.lrem(self._proxy, proxy)
+        except:
+            traceback.print_exc()
+        
     def get_allproxy(self):
-        proxies = self._db.smembers(self._proxy)
+        proxies = self._db.lrange(self._proxy, 0, -1)
         return proxies
 
     @property
     def proxy_len(self):
-        return self._db.scard(self._proxy)
+        return self._db.llen(self._proxy)
         
 
 class MongoClient(object):

@@ -123,9 +123,9 @@ class GroupCrawler(object):
         return '', ''
 
     def crawler(self, iurl):
-        url, use_proxy = iurl
+        url, proxies = iurl
         headers = {'Referer': 'https://www.douban.com/group/explore'}
-        content = get_page(url, headers=headers, use_proxy=use_proxy)
+        content = get_page(url, headers=headers, proxies=proxies)
         self.parse_content(content, url)
 
     def run(self):
@@ -142,17 +142,19 @@ class GroupCrawler(object):
                 urls = self.redisdb.get_new_urls(CRAWL_WORKER_THREAD_NUM)
                 self.redisdb.add_old_urls(urls)
                 self.redisdb.url_unlock()
-                pools.map(self.crawler, [(x, self.use_proxy) for x in urls])
-                logging.info('waitting for next round')
-                if CRAWL_MODE == 'mix':
-                    if count%3 == 0:
-                        self.use_proxy = False
+
+                if CRAWL_MODE in ['proxy', 'mix']:
+                    if CRAWL_MODE == 'mix' and count%5 == 0:
+                        proxies = {}
                     else:
-                        self.use_proxy = True
+                        proxy = self.redisdb.rand_proxy().replace('https', 'http')
+                        proxies = { 'https': proxy, 'http': proxy }
+                pools.map(self.crawler, [(x, proxies) for x in urls])
+                logging.info('waitting for next round')
+                
                 count += 1
                 if count >= 1000:
                     count = 0
-                
                 sleep(CRAWL_WORKER_SLEEP)
             else:
                 print 'url queue len is: %s' % self.redisdb.url_len

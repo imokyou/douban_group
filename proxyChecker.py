@@ -46,6 +46,7 @@ class Tester(object):
                 else:
                     resp = requests.get(HTTPS_TEST_API, proxies=proxies, timeout=CHECK_TIMEOUT)
                 if resp:
+                    self.conn.add_proxy(proxy)
                     logging.info('Valid proxy %s' % proxy)
             except:
                 self.conn.remove_proxy(proxy)

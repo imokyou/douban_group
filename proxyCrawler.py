@@ -52,9 +52,9 @@ class ProxyCrawler(object):
         pools = Pool(_WORKER_THREAD_NUM)
         while True:
             if self.proxy_enough():
-                continue
                 logging.info('proxy is enough, proxy crawler has been paused for now...')
                 sleep(CRAWL_PAGE_SLEEP)
+                continue
             proxies = self.spider.get_raw_proxies()
             pools.map(self.checker.test_single, proxies)
             logging.info('waitting for next round..., paused %s seconds for now.' % CRAWL_PAGE_SLEEP)
