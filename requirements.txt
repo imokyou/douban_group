@@ -19,4 +19,4 @@ PySocks==1.6.7
 redis==2.10.5
 requests==2.18.4
 SQLAlchemy==1.1.13
-urllib3==1.22
+urllib3==1.26.5
